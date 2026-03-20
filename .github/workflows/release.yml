@@ -46,11 +46,9 @@ jobs:
         run: |
           cd ffmpeg
           ./configure \
-            --arch=${{ matrix.target == 'aarch64-apple-darwin' && 'arm64' || 'x86_64' }} \
             --disable-everything \
             --disable-network \
             --disable-autodetect \
-            --disable-x86asm \
             --disable-doc \
             --disable-htmlpages \
             --disable-manpages \
@@ -69,8 +67,7 @@ jobs:
             --enable-parser=aac,mpegaudio,opus,vorbis,flac,ac3 \
             --enable-protocol=file,pipe \
             --enable-filter=aresample,anull,aformat \
-            --enable-bsf=aac_adtstoasc,extract_extradata \
-            --extra-cflags="-Wno-error=asm-operand-widths -Wno-asm-operand-widths"
+            --enable-bsf=aac_adtstoasc,extract_extradata
           make -j$(sysctl -n hw.ncpu)
           strip ffmpeg
 

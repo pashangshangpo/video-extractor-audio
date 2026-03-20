@@ -100,7 +100,9 @@ jobs:
             --enable-parser=aac,mpegaudio,opus,vorbis,flac,ac3 \
             --enable-protocol=file,pipe \
             --enable-filter=aresample,anull,aformat \
-            --enable-bsf=aac_adtstoasc,extract_extradata
+            --enable-bsf=aac_adtstoasc,extract_extradata \
+            --extra-ldflags="-static -static-libgcc -static-libstdc++" \
+            --extra-libs="-lpthread -lm"
           make -j$(nproc)
           strip ffmpeg.exe
 

@@ -1,0 +1,120 @@
+name: Build Minimal FFmpeg Audio Extractor
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: ffmpeg-macos-arm
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: ffmpeg-macos-intel
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: ffmpeg-windows-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install yasm nasm
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-yasm
+            mingw-w64-x86_64-nasm
+            make
+
+      - name: Clone FFmpeg
+        run: git clone --depth 1 --branch n7.1 https://git.ffmpeg.org/ffmpeg.git
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd ffmpeg
+          ./configure \
+            --arch=${{ matrix.target == 'aarch64-apple-darwin' && 'arm64' || 'x86_64' }} \
+            --disable-everything \
+            --disable-network \
+            --disable-autodetect \
+            --disable-doc \
+            --disable-htmlpages \
+            --disable-manpages \
+            --disable-podpages \
+            --disable-txtpages \
+            --disable-ffplay \
+            --disable-ffprobe \
+            --disable-debug \
+            --disable-shared \
+            --enable-static \
+            --enable-small \
+            --enable-gpl \
+            --enable-demuxer=mov,matroska,avi,flv,mpegts,mp3,wav,ogg,flac,aac \
+            --enable-muxer=adts,wav,ogg,mp3,flac,opus,ipod,mp4 \
+            --enable-decoder=aac,mp3,mp3float,opus,vorbis,flac,pcm_s16le,pcm_s24le,pcm_f32le,ac3,eac3 \
+            --enable-parser=aac,mpegaudio,opus,vorbis,flac,ac3 \
+            --enable-protocol=file,pipe \
+            --enable-filter=aresample,anull,aformat \
+            --enable-bsf=aac_adtstoasc,extract_extradata
+          make -j$(sysctl -n hw.ncpu)
+          strip ffmpeg
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          cd ffmpeg
+          ./configure \
+            --arch=x86_64 \
+            --target-os=mingw32 \
+            --disable-everything \
+            --disable-network \
+            --disable-autodetect \
+            --disable-doc \
+            --disable-htmlpages \
+            --disable-manpages \
+            --disable-podpages \
+            --disable-txtpages \
+            --disable-ffplay \
+            --disable-ffprobe \
+            --disable-debug \
+            --disable-shared \
+            --enable-static \
+            --enable-small \
+            --enable-gpl \
+            --enable-demuxer=mov,matroska,avi,flv,mpegts,mp3,wav,ogg,flac,aac \
+            --enable-muxer=adts,wav,ogg,mp3,flac,opus,ipod,mp4 \
+            --enable-decoder=aac,mp3,mp3float,opus,vorbis,flac,pcm_s16le,pcm_s24le,pcm_f32le,ac3,eac3 \
+            --enable-parser=aac,mpegaudio,opus,vorbis,flac,ac3 \
+            --enable-protocol=file,pipe \
+            --enable-filter=aresample,anull,aformat \
+            --enable-bsf=aac_adtstoasc,extract_extradata
+          make -j$(nproc)
+          strip ffmpeg.exe
+
+      - name: Check (macOS)
+        if: runner.os == 'macOS'
+        run: ls -lh ffmpeg/ffmpeg
+
+      - name: Check (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: ls -lh ffmpeg/ffmpeg.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ffmpeg/ffmpeg${{ runner.os == 'Windows' && '.exe' || '' }}
